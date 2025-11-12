@@ -2,8 +2,20 @@
 '''
 {
   "jsonrpc": "2.0",
-  "result": 168,
-  "id": 1
+  "id": 0,
+  "result": {
+    "openrpc": "1.2.6",
+    "info": {
+      "title": "Mock",
+      "version": "1.0.0"
+    },
+    "methods": [
+      {
+        "name": "info",
+        "summary": "Retorna info do nó"
+      }
+    ]
+  }
 }
 '''
 
@@ -18,5 +30,5 @@ def convert_to_json(dictionary):
     return dictionary
 
 def send_interest(name, app_param):
-    response = {"jsonrpc": "2.0", "result": 168, "id": 1}
+    response = {"jsonrpc": "2.0","id": 0,"result": {"openrpc": "1.2.6","info": {"title": "Mock","version": "1.0.0"},"methods": [{"name": "info","summary": "Retorna info do nó"}]}}
     return response
