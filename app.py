@@ -1,26 +1,50 @@
-from flask import Flask, json, request
-from markupsafe import escape
+from quart import Quart, request, jsonify
 from selector import select_name
-from procon import connect_nfd, start_loop, consumer, producer
+from procon import connect_nfd, consume
 import ast
 import asyncio
 
-app = Flask(__name__)
+app = Quart(__name__)
+ndn_app = None
 
-async def start_ndn_stack():
-  ndn_app = connect_nfd()
-  start_loop(ndn_app)
-
+@app.before_serving
+async def startup():
+    global ndn_app
+    print("Iniciando Gateway HTTP-NDN (Unix Socket)...")
+    
+    ndn_app = connect_nfd()
+    
+    # ERRO ANTERIOR: ndn_app.run_forever() -> Tenta criar um novo loop e crasha.
+    # CORREÇÃO: ndn_app.main_loop() -> Usa o loop que já existe (do Hypercorn).
+    loop = asyncio.get_event_loop()
+    loop.create_task(ndn_app.main_loop())
+    
+    print("Aguardando conexão com o NFD...")
+    for i in range(20):
+        if ndn_app.face.running:
+            print("Conectado ao NFD via Socket com sucesso!")
+            break
+        await asyncio.sleep(0.1)
+    else:
+        print("ALERTA: Não foi possível verificar a conexão com o socket (mas o driver continua tentando).")
 
 @app.post("/node/<int:node_id>")
+@app.post("/node/<int:node_id>")
 async def node_post(node_id):
-  name = select_name(node_id)
-  if len(request.get_data()) == 0:
-      request_body = ""
-  else:
-      request_body = ast.literal_eval(request.get_data().decode("UTF-8"))
-  print(repr(request_body))
-  return json.jsonify(consumer(name, request_body))
+    global ndn_app
+    
+    if ndn_app is None or not ndn_app.face.running:
+        return jsonify({"error": "Gateway NDN desconectado"}), 503
 
+    name = select_name(node_id)
+    
+    raw_data = await request.get_data()
+    
+    print(f"[HTTP -> NDN] Enviando {len(raw_data)} bytes para: {name}")
 
-start_ndn_stack()
+    response = await consume(ndn_app, name, ApplicationParameters=raw_data)
+    
+    return jsonify(response)
+
+if __name__ == "__main__":
+    app.run(port=8080, host="0.0.0.0")

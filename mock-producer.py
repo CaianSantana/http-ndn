@@ -1,48 +1,27 @@
-# -----------------------------------------------------------------------------
-# Copyright (C) 2019-2022 The python-ndn authors
-#
-# This file is part of python-ndn.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# -----------------------------------------------------------------------------
-import typing
 import logging
-from ndn import appv2
-from ndn import encoding as enc
+import asyncio
+import os
+from ndn.app import NDNApp
+from ndn.encoding import Name, Component
+from ndn.security import KeychainDigest
 
+logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-logging.basicConfig(format='[{asctime}]{levelname}:{message}',
-                    datefmt='%Y-%m-%d %H:%M:%S',
-                    level=logging.INFO,
-                    style='{')
+os.environ['NDN_CLIENT_TRANSPORT'] = 'unix:///run/nfd/nfd.sock'
 
+app = NDNApp(keychain=KeychainDigest())
 
-app = appv2.NDNApp()
+@app.route('/br/ba/ssa/iota/first')
+def on_interest(name, interest_param, application_param):
+    print(f"Recebi interesse para: {Name.to_str(name)}")
+    
+    if application_param:
+        print(f"Payload recebido: {bytes(application_param).decode('utf-8')}")
 
-keychain = app.default_keychain()
-
-@app.route('/app')
-def on_interest(name: enc.FormalName, _app_param: typing.Optional[enc.BinaryStr],
-                reply: appv2.ReplyFunc, context: appv2.PktContext):
-    print(f'>> I: {enc.Name.to_str(name)}, {context["int_param"]}')
-    content = "Hello, world!".encode()
-    reply(app.make_data(name, content=content, signer=keychain.get_signer({}),
-                        freshness_period=10000))
-    print(f'<< D: {enc.Name.to_str(name)}')
-    print(enc.MetaInfo(freshness_period=10000))
-    print(f'Content: (size: {len(content)})')
-    print('')
-
+    content = "Resposta do Blockchain: Bloco #12345 (Via NDN)"
+    app.put_data(name, content=content.encode('utf-8'), freshness_period=10000)
+    print("Dados enviados!")
 
 if __name__ == '__main__':
+    print("Iniciando Produtor Mock...")
     app.run_forever()
