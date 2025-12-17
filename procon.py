@@ -3,6 +3,8 @@ import os
 from ndn.app import NDNApp
 from ndn.encoding import Name, InterestParam
 from ndn.security import KeychainDigest
+import requester
+
 
 def connect_nfd():
     os.environ['NDN_CLIENT_TRANSPORT'] = 'unix:///run/nfd/nfd.sock'
@@ -39,3 +41,28 @@ async def consume(app, interest_name, must_be_fresh=True, can_be_prefix=False, l
     except Exception as e:
         print(f"Erro no consume: {e}")
         return {"error": str(e), "type": str(type(e))}
+    
+def make_handler(ndn_app):
+    def on_interest(name, interest_param, application_param):
+        asyncio.create_task(
+            handle_interest_async(ndn_app, name, application_param)
+        )
+    return on_interest
+
+async def handle_interest_async(ndn_app, name, application_param):
+    print(f"Recebi interesse para: {Name.to_str(name)}")
+
+    content = "payload vazio"
+
+    if application_param:
+        payload = bytes(application_param)
+        print(f"Payload recebido: {payload.decode('utf-8')}")
+        content = await requester.post(payload)
+
+    ndn_app.put_data(
+        name,
+        content=content.encode('utf-8'),
+        freshness_period=10000
+    )
+
+    print("Dados enviados!")
