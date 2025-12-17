@@ -90,6 +90,9 @@ rib\n\
   }\n\
 }' > /etc/ndn/nfd.conf
 
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 USER ndn
 
 RUN ndnsec key-gen -t r /app
@@ -99,4 +102,4 @@ RUN ndnsec sign-req /app | ndnsec cert-gen -s /app -i app | ndnsec cert-install 
 
 RUN pip install -r requirements.txt
 
-CMD ["nfd"]
+CMD ["/entrypoint.sh"]
