@@ -1,6 +1,6 @@
 from quart import Quart, request, jsonify
 from selector import select_name
-from procon import connect_nfd, consume
+from procon import connect_nfd, consume, make_handler
 import ast
 import asyncio
 
@@ -13,12 +13,12 @@ async def startup():
     print("Iniciando Gateway HTTP-NDN (Unix Socket)...")
     
     ndn_app = connect_nfd()
-    
-    # ERRO ANTERIOR: ndn_app.run_forever() -> Tenta criar um novo loop e crasha.
-    # CORREÇÃO: ndn_app.main_loop() -> Usa o loop que já existe (do Hypercorn).
+
     loop = asyncio.get_event_loop()
     loop.create_task(ndn_app.main_loop())
     
+    ndn_app.route(select_name(1))(make_handler(ndn_app))
+
     print("Aguardando conexão com o NFD...")
     for i in range(20):
         if ndn_app.face.running:
@@ -28,7 +28,6 @@ async def startup():
     else:
         print("ALERTA: Não foi possível verificar a conexão com o socket (mas o driver continua tentando).")
 
-@app.post("/node/<int:node_id>")
 @app.post("/node/<int:node_id>")
 async def node_post(node_id):
     global ndn_app
